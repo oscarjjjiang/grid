@@ -89,48 +89,69 @@ function AccountChip({ email }) {
   )
 }
 
+/* ---------- email + password sign-in (no link, no code) ---------- */
 function SignIn() {
+  const [mode, setMode] = useState('signin')   // 'signin' | 'signup'
   const [email, setEmail] = useState('')
-  const [sent, setSent] = useState(false)
+  const [password, setPassword] = useState('')
   const [err, setErr] = useState('')
   const [busy, setBusy] = useState(false)
 
-  const send = async () => {
-    if (!email) return
+  const submit = async () => {
+    if (!email || !password) { setErr('Enter your email and password.'); return }
     setBusy(true); setErr('')
-    const { error } = await supabase.auth.signInWithOtp({
-      email,
-      options: { emailRedirectTo: window.location.origin },
-    })
-    setBusy(false)
-    if (error) setErr(error.message)
-    else setSent(true)
+    if (mode === 'signup') {
+      const { data, error } = await supabase.auth.signUp({ email, password })
+      setBusy(false)
+      if (error) { setErr(error.message); return }
+      if (!data.session) {
+        setErr('Account made, but email confirmation is still ON in Supabase. Turn it off (Authentication → Providers → Email → uncheck "Confirm email") so you can sign in with just a password.')
+      }
+      // if a session came back, onAuthStateChange signs you straight in
+    } else {
+      const { error } = await supabase.auth.signInWithPassword({ email, password })
+      setBusy(false)
+      if (error) setErr(error.message)
+    }
+  }
+
+  const inputStyle = {
+    width: '100%', boxSizing: 'border-box', background: '#0e1014', border: '1px solid #2e343d',
+    borderRadius: 8, color: '#e7eaef', padding: '11px 12px', fontSize: 14, marginBottom: 10,
   }
 
   return (
     <div style={{ width: 360, maxWidth: '90vw', textAlign: 'center', fontFamily: 'system-ui', color: '#e7eaef' }}>
       <div style={{ fontFamily: 'monospace', fontSize: 22, letterSpacing: '.22em', marginBottom: 6 }}>GRID</div>
-      <div style={{ color: '#8b94a3', fontSize: 13, marginBottom: 28 }}>your project x time planner</div>
-      {sent ? (
-        <div style={{ background: '#11251f', border: '1px solid rgba(45,212,191,.4)', borderRadius: 10, padding: 18, fontSize: 14, lineHeight: 1.5 }}>
-          Check your inbox - we sent a sign-in link to<br /><strong>{email}</strong>.<br />Open it on any device to load your plans.
-        </div>
-      ) : (
-        <>
-          <input
-            type="email" value={email} placeholder="you@email.com"
-            onChange={(e) => setEmail(e.target.value)}
-            onKeyDown={(e) => e.key === 'Enter' && send()}
-            style={{ width: '100%', boxSizing: 'border-box', background: '#0e1014', border: '1px solid #2e343d', borderRadius: 8, color: '#e7eaef', padding: '11px 12px', fontSize: 14, marginBottom: 12 }}
-          />
-          <button onClick={send} disabled={busy}
-            style={{ width: '100%', background: '#2dd4bf', border: 'none', borderRadius: 8, color: '#04201c', fontWeight: 600, cursor: 'pointer', padding: '11px', fontSize: 14, opacity: busy ? 0.6 : 1 }}>
-            {busy ? 'Sending...' : 'Email me a sign-in link'}
-          </button>
-          {err && <div style={{ color: '#fb7185', fontSize: 12, marginTop: 10 }}>{err}</div>}
-          <div style={{ color: '#5b6472', fontSize: 11, marginTop: 14 }}>No password. The link signs you in on whatever device you open it.</div>
-        </>
-      )}
+      <div style={{ color: '#8b94a3', fontSize: 13, marginBottom: 26 }}>
+        {mode === 'signup' ? 'Create your account' : 'Sign in to your planner'}
+      </div>
+
+      <input type="email" value={email} placeholder="you@email.com" autoComplete="email"
+        onChange={(e) => setEmail(e.target.value)}
+        onKeyDown={(e) => e.key === 'Enter' && submit()}
+        style={inputStyle} />
+      <input type="password" value={password} placeholder="password"
+        autoComplete={mode === 'signup' ? 'new-password' : 'current-password'}
+        onChange={(e) => setPassword(e.target.value)}
+        onKeyDown={(e) => e.key === 'Enter' && submit()}
+        style={inputStyle} />
+
+      <button onClick={submit} disabled={busy}
+        style={{ width: '100%', background: '#2dd4bf', border: 'none', borderRadius: 8, color: '#04201c', fontWeight: 600, cursor: 'pointer', padding: '11px', fontSize: 14, opacity: busy ? 0.6 : 1, marginTop: 2 }}>
+        {busy ? 'Working…' : mode === 'signup' ? 'Create account' : 'Sign in'}
+      </button>
+
+      {err && <div style={{ color: '#fb7185', fontSize: 12, marginTop: 10, lineHeight: 1.5 }}>{err}</div>}
+
+      <button onClick={() => { setMode(mode === 'signup' ? 'signin' : 'signup'); setErr('') }}
+        style={{ background: 'none', border: 'none', color: '#8b94a3', cursor: 'pointer', fontSize: 12, marginTop: 16, textDecoration: 'underline' }}>
+        {mode === 'signup' ? 'Already have an account? Sign in' : "First time? Create an account"}
+      </button>
+
+      <div style={{ color: '#5b6472', fontSize: 11, marginTop: 14 }}>
+        Stays signed in on this device. Use the same email + password on your other devices.
+      </div>
     </div>
   )
 }
